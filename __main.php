@@ -443,7 +443,7 @@ function file_saver($location = "./", $list = [], $mode = "file")
   }
 }
 
-function folder_delete($location)
+function folder_delete($location, bool $alsoThisOne = true)
 {
   if (file_exists($location)) {
     $it = new RecursiveDirectoryIterator($location, RecursiveDirectoryIterator::SKIP_DOTS);
@@ -455,7 +455,7 @@ function folder_delete($location)
         unlink($file->getRealPath());
       }
     }
-    rmdir($location);
+    if($alsoThisOne) rmdir($location);
   }
 }
 

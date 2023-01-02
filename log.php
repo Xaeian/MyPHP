@@ -79,12 +79,10 @@ class LOG
         $n--;
       }
     }
-
     $time = ($this->utc) ? gmdate(self::DATETIME_STRING[$this->precision]) : date(self::DATETIME_STRING[$this->precision]);
     $head = str_pad(strtoupper($head), $this->headLength);
     $msg = ($this->msgLimit && strlen($msg) > $this->msgLimit) ? substr($msg, 0, $this->msgLimit - 3) . "..." : $msg;
     $msg = trim($msg);
-
     if($multiline) {
       $parts = explode_enter($msg);
       $msg = array_shift($parts);
@@ -120,11 +118,6 @@ class LOG
   {
     $this->Record($text, "error");
     return $this;
-  }
-
-  function ErrorUnknown(mixed $msg)
-  {
-
   }
 
   function Warning(string $text)

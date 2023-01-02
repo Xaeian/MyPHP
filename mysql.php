@@ -28,13 +28,12 @@ class MYSQL
     try {
       $conn = new mysqli($this->host, $this->user, $this->password, $this->db);
       mysqli_report(MYSQLI_REPORT_STRICT | MYSQLI_REPORT_ERROR);
-
-      if ($conn->connect_errno) throw new Exception(mysqli_connect_errno());
+      if($conn->connect_errno) throw new Exception(mysqli_connect_errno());
       else {
         $conn->set_charset("utf8");
         $result = $conn->query(trim($sql));
         $conn->close();
-        if ($result) return $result;
+        if($result) return $result;
         else throw new Exception($conn->error);
       }
     } catch (Exception $e) {
@@ -46,44 +45,54 @@ class MYSQL
 
   function Transaction(array $sqls)
   {
+    if(!$sqls) return NULL;
     try {
       $conn = new mysqli($this->host, $this->user, $this->password, $this->db);
       mysqli_report(MYSQLI_REPORT_STRICT | MYSQLI_REPORT_ERROR);
-
-      if ($conn->connect_errno) throw new Exception(mysqli_connect_errno());
+      if($conn->connect_errno) throw new Exception(mysqli_connect_errno());
       else {
         $conn->set_charset("utf8");
         $conn->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
         $results = [];
-
-        foreach ($sqls as $i => $sql) {
-          if ($sql != null) {
+        foreach($sqls as $i => $sql) {
+          if($sql != NULL) {
             $sql = trim($sql);
             $sql = rtrim($sql, ';');
-
-            if (!$results[$i] = $conn->query($sql)) {
+            if(!$results[$i] = $conn->query($sql)) {
               $conn->rollback();
               $conn->close();
               throw new Exception($conn->error);
             }
-          } else $results[$i] = null;
+          }
+          else $results[$i] = NULL;
         }
-
         $conn->commit();
         $conn->close();
         return $results;
       }
     } catch (Exception $e) {
-      $message = preg_replace('/\s+/', " ", $e->getMessage());
+      $message = preg_replace('/\s+/', " ", $e->getMessage()); // TODO get code
       $this->log->Error($message);
-      return null;
+      return NULL;
     }
   }
+
+  function Exec(string|array $sql)
+  {
+    if(is_array($sql)) {
+      $results = $this->Transaction($sql);
+      foreach($results as $result) {
+        if(is_object($result)) return $result;
+      }
+    }
+    return $this->Run($sql);
+  }
+  
   //------------------------------------------------------------------------------------------------------------------- Convert
 
   public static function Decode(mixed $value) // from Database
   {
-    if (is_string($value)) {
+    if(is_string($value)) {
       $value = str_replace("&#039;", "'", $value);
       return html_entity_decode($value);
     } else return $value;
@@ -91,96 +100,96 @@ class MYSQL
 
   public static function EncodeLike(mixed $value) // to Database
   {
-    if (!is_number($value)) {
-      if ($value == null) return "null";
+    if(!is_number($value)) {
+      if($value == null) return "null";
       return "'" . htmlentities(strtolower_utf8(trim($value)), ENT_QUOTES) . "'";
     } else return $value;
   }
 
   public static function EncodeInsert(mixed $value) // to Database
   {
-    if (!is_number($value)) {
-      if ($value == null) return "null";
+    if(!is_number($value)) {
+      if($value == null) return "null";
       return "'" . htmlentities(trim($value), ENT_QUOTES) . "'";
     } else return $value;
   }
   //------------------------------------------------------------------------------------------------------------------- GET
 
-  function getArrayAssoc($sql)
+  function getArrayAssoc($sql): ?array
   {
     $ary = [];
     $result = $this->Run($sql);
-    if ($result->num_rows <= 0) return null;
+    if(!$result || $result->num_rows < 0) return NULL;
     $n = 0;
-    while ($row = $result->fetch_assoc()) {
+    while($row = $result->fetch_assoc()) {
       $ary[$n] = [];
-      foreach ($row as $name => $cell) {
-        $ary[$n][$name] = $this->Decode($cell);
+      foreach($row as $name => $value) {
+        $ary[$n][$name] = $this->Decode($value);
       }
       $n++;
     }
     return $ary;
   }
 
-  function getRowAssoc($sql)
+  function getRowAssoc($sql): ?array
   {
     $ary = $this->getArrayAssoc($sql);
-    if (isset($ary[0])) return $ary[0];
-    return null;
+    if(isset($ary[0])) return $ary[0];
+    return NULL;
   }
 
-  function getArrayNumber($sql)
+  function getArrayNumber($sql): ?array
   {
     $ary = [];
     $result = $this->Run($sql);
-    if ($result->num_rows <= 0) return null;
+    if(!$result || $result->num_rows < 0) return NULL;
     $n = 0;
-    while ($row = $result->fetch_row()) {
+    while($row = $result->fetch_row()) {
       $ary[$n] = [];
-      foreach ($row as $name => $cell) {
-        $ary[$n][$name] = $this->Decode($cell);
+      foreach($row as $name => $value) {
+        $ary[$n][$name] = $this->Decode($value);
       }
       $n++;
     }
     return $ary;
   }
 
-  function getRowNumber($sql): array
+  function getRowNumber($sql): ?array
   {
     $ary = $this->getArrayNumber($sql);
-    if (isset($ary[0])) return $ary[0];
-    return null;
+    if(isset($ary[0])) return $ary[0];
+    return NULL;
   }
 
-  function getColumn($sql): array
+  function getColumn($sql): ?array
   {
     $col = [];
     $ary = $this->getArrayNumber($sql);
-    if ($ary) {
-      foreach ($ary as $i => $row) $col[$i] = $row[0];
+    if($ary) {
+      foreach($ary as $i => $row) $col[$i] = $row[0];
       return $col;
-    } else return null;
+    } else return NULL;
   }
 
-  function getCell($sql): mixed
+  function getValue($sql): mixed
+  {
+    $result = $this->Exec($sql);
+    if(!$result || $result->num_rows <= 0) return NULL;
+    else if($row = $result->fetch_row()) return $this->Decode($row[0]);
+    return NULL;
+  }
+
+  function getCount($table, $where = ""): int
+  {
+    if($where) $where = " WHERE " . $where;
+    return $this->getValue("SELECT COUNT(*) FROM " . $table . $where . ";");
+  }
+
+  function getBool($sql): ?bool
   {
     $result = $this->Run($sql);
-    if (!$result || $result->num_rows <= 0) return null;
-    else if ($row = $result->fetch_row()) return $this->Decode($row[0]);
-    return null;
-  }
-
-  function getCount($table, $where = "")
-  {
-    if ($where) $where = " WHERE " . $where;
-    return $this->getCell("SELECT COUNT(*) FROM " . $table . $where . ";");
-  }
-
-  function getBool($sql)
-  {
-    $result = $this->Run($sql);
-    if (!$result || $result->num_rows <= 0) return null;
-    else if ($result->fetch_row()) return true;
+    if(!$result || $result->num_rows <= 0) return NULL;
+    else if($result->fetch_row()) return true;
     else return false;
   }
   //------------------------------------------------------------------------------------------------------------------- ???
@@ -204,7 +213,7 @@ class MYSQL
   function ReindexSQL($table)
   {
     $sql = [];
-    $sql[0] = "set @row = 0;";
+    $sql[0] = "SET @row = 0;";
     $sql[1] = "UPDATE " . $table . " SET id = @row := @row+1;";
     return array_merge($sql, $this->AutoIncrementSQL($table));
   }
@@ -213,13 +222,43 @@ class MYSQL
   {
     $this->Transaction($this->ReindexSQL($table));
   }
+
+  function getAutoincrement($table): mixed
+  {
+    $sql = "SELECT `AUTO_INCREMENT` FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '$this->db' AND TABLE_NAME = '$table';";
+    return $this->getValue($sql);
+  }
+
+  function setAutoincrement($table, $value)
+  {
+    $sql = "ALTER TABLE $table AUTO_INCREMENT = $value;";
+    $this->Run($sql);
+  }
+
+  function alocAutoincrementSQL(string $table, int $size)
+  {
+    $sql = [];
+    $sql[0] = "SET @ainc = (SELECT `AUTO_INCREMENT` FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '$this->db' AND TABLE_NAME = '$table');";
+    $sql[1] = "SET @sql = CONCAT(\"ALTER TABLE annotations AUTO_INCREMENT=\", @ainc + $size);";
+    $sql[2] = "PREPARE stmt FROM @sql;";
+    $sql[3] = "EXECUTE stmt;";
+    $sql[4] = "DEALLOCATE PREPARE stmt;";
+    $sql[5] = "SELECT @ainc;";
+    return $sql;
+  }
+
+  function alocAutoincrement(string $table, int $size): int
+  {
+    return $this->getValue($this->alocAutoincrementSQL($table, $size)); // get value
+  }
+
   //------------------------------------------------------------------------------------------------------------------- Database
 
   function createDatabase(string $name, bool $setActive = true)
   {
     $sql = "CREATE DATABASE IF NOT EXISTS {$name} CHARACTER SET utf8 COLLATE utf8_bin;";
     $result = $this->Run($sql);
-    if ($setActive) $this->db = $name;
+    if($setActive) $this->db = $name;
     return $result;
   }
 
@@ -256,7 +295,7 @@ class MYSQL
 
   function getTableUpdateTime($database, $table)
   {
-    return $this->getCell("SELECT update_time FROM information_schema.tables WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = '$table';");
+    return $this->getValue("SELECT update_time FROM information_schema.tables WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = '$table';");
   }
 
   function getTableList()
@@ -268,15 +307,15 @@ class MYSQL
   function getColumnNames(string $table, array $without = []): array
   {
     $sql = "SHOW COLUMNS FROM $table";
-    if ($without) {
+    if($without) {
       $sql .= " WHERE";
-      foreach ($without as $column) $sql .= "Field <> '$column' AND";
+      foreach($without as $column) $sql .= "Field <> '$column' AND";
       $sql = remove_prefix($sql, " AND");
     }
     $sql .= ";";
     $res = $this->getArrayAssoc($sql);
     $list = [];
-    foreach ($res as $key => $row) array_push($list, $row["Field"]);
+    foreach($res as $key => $row) array_push($list, $row["Field"]);
     return $list;
   }
   //------------------------------------------------------------------------------------------------------------------- Insert
@@ -284,7 +323,7 @@ class MYSQL
   function insertRowSQL(string $table, array $row)
   {
     $sql = "INSERT INTO {$table} VALUES(";
-    foreach ($row as $value) $sql .= $this->EncodeInsert($value) . ",";
+    foreach($row as $value) $sql .= $this->EncodeInsert($value) . ",";
     return rtrim($sql, ",") . ");";
   }
 
@@ -296,11 +335,11 @@ class MYSQL
   function insertArraySQL(string $table, array $array)
   {
     $sql = "INSERT INTO {$table} VALUES(";
-    foreach ($array as $row) {
-      foreach ($row as $value) $sql .= $this->EncodeInsert($value) . ",";
+    foreach($array as $row) {
+      foreach($row as $value) $sql .= $this->EncodeInsert($value) . ",";
       $sql = rtrim($sql, ",") . "),(";
     }
-    return rtrim($sql, ",") . ");";
+    return remove_suffix($sql, ",(") . ";";
   }
 
   function insertArray(string $table, array $array)
@@ -322,7 +361,7 @@ class MYSQL
   function updateRowSQL(string $table, int $id, array $row)
   {
     $sql = "UPDATE {$table} SET ";
-    foreach ($row as $column => $value)
+    foreach($row as $column => $value)
       $sql .= $column . "=" . $this->EncodeInsert($value) . ",";
     $sql = rtrim($sql, ",");
     $sql .= " WHERE id=" . $id . ";";
@@ -337,7 +376,7 @@ class MYSQL
   function updateArraySQL(string $table, array $array)
   {
     $sqls = [];
-    foreach ($array as $id => $row) $sqls[$id] = $this->updateRowSQL($table, $id, $row);
+    foreach($array as $id => $row) $sqls[$id] = $this->updateRowSQL($table, $id, $row);
     return $sqls;
   }
 
@@ -347,18 +386,18 @@ class MYSQL
   }
   //------------------------------------------------------------------------------------------------------------------- Delete
 
-  function deleteSQL(string $table, int|array $ids)
+  function deleteSQL(string $table, int|array $ids, string $column = "id")
   {
     to_vector($ids);
     $sql = "DELETE FROM $table WHERE";
-    foreach ($ids as $id) $sql .= " id=" . $id . " AND";
+    foreach($ids as $id) $sql .= " $column=$id AND";
     $sql = remove_suffix($sql, " AND") . ";";
     return $sql;
   }
 
-  function delete(string $table, int|array $ids)
+  function delete(string $table, int|array $ids, string $column = "id")
   {
-    return $this->Run($this->deleteSQL($table, $ids));
+    return $this->Run($this->deleteSQL($table, $ids, $column));
   }
 
   function deleteLastRowsSQL(string $table, $count)
@@ -371,9 +410,9 @@ class MYSQL
     return $this->Run($this->deleteLastRowsSQL($table, $count));
   }
 
-  function getLastCell($table, $column)
+  function getLastValue($table, $column)
   {
-    return $this->getCell("SELECT " . $column . " FROM " . $table . " ORDER BY id DESC LIMIT 1;");
+    return $this->getValue("SELECT " . $column . " FROM " . $table . " ORDER BY id DESC LIMIT 1;");
   }
 
   function getLastRowAssoc($table)
@@ -386,9 +425,9 @@ class MYSQL
     return $this->getRowNumber("SELECT * FROM " . $table . " ORDER BY id DESC LIMIT 1;");
   }
 
-  function getFirstCell($table, $column)
+  function getFirstValue($table, $column)
   {
-    return $this->getCell("SELECT $column FROM $table ORDER BY id ASC LIMIT 1;");
+    return $this->getValue("SELECT $column FROM $table ORDER BY id ASC LIMIT 1;");
   }
   //------------------------------------------------------------------------------------------------------------------- User
 
@@ -434,7 +473,7 @@ class MYSQL
     $tables = $this->getTableList();
     $this->createDatabase($db . "_" . $backup, false);
 
-    foreach ($tables as $table) {
+    foreach($tables as $table) {
       $this->dropTable($db . "_" . $backup . "." . $table);
       $this->createTableLike($db . "_" . $backup . "." . $table, $table);
       $this->copyTable($db . "_" . $backup . "." . $table, $table);
@@ -446,9 +485,9 @@ class MYSQL
   {
     $db = $this->db;
     $tables = $this->getTableList();
-    if (!$this->isSetDatabase($db . "_" . $backup)) return;
+    if(!$this->isSetDatabase($db . "_" . $backup)) return;
 
-    foreach ($tables as $table) {
+    foreach($tables as $table) {
       $this->dropTable($table);
       $this->createTableLike($table, $db . "_" . $backup . "." . $table);
       $this->copyTable($table, $db . "_" . $backup . "." . $table);

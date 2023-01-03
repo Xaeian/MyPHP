@@ -393,9 +393,10 @@ function file_remover($location = "./", $extension = [], $regex_and = [], $regex
   foreach ($file_list as $name) unlink($location . $name);
 }
 
-function file_loader($location = "./", $mode = "file", $extension = [], $regex_and = [], $regex_or = [], $sort = 0)
+function file_loader($location = "./", $mode = "file", $extension = [], $regex_and = [], $regex_or = [], $sort = 0): array
 {
   $location = preg_replace("/[\\/]+$/", "", $location) . "/";
+  if(!file_exists($location)) return [];
   $list = file_list($location, $extension, $regex_and, $regex_or, $sort);
   $output = [];
   foreach ($list as $name) {

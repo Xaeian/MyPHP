@@ -117,7 +117,7 @@ class SQLITE
     } else return null;
   }
 
-  function getCell($sql)
+  function getValue($sql)
   {
     $result = $this->Run($sql);
     if (!$result || $result->num_rows <= 0) return null;
@@ -128,7 +128,7 @@ class SQLITE
   function getCount($table, $where = "")
   {
     if ($where) $where = " WHERE " . $where;
-    return $this->getCell("SELECT COUNT(*) FROM " . $table . $where . ";");
+    return $this->getValue("SELECT COUNT(*) FROM " . $table . $where . ";");
   }
 
   function getBool($sql)
@@ -182,9 +182,9 @@ class SQLITE
 
   //------------------------------------------------------------------------------------------------------------------- <--- Last/First
 
-  function getLastCell($table, $column)
+  function getLastValue($table, $column)
   {
-    return $this->getCell("SELECT $column FROM $table ORDER BY id DESC LIMIT 1;");
+    return $this->getValue("SELECT $column FROM $table ORDER BY id DESC LIMIT 1;");
   }
 
   function getLastRowAssoc($table)
@@ -197,8 +197,8 @@ class SQLITE
     return $this->getRowNumber("SELECT * FROM $table ORDER BY id DESC LIMIT 1;");
   }
 
-  function getFirstCell($table, $column)
+  function getFirstValue($table, $column)
   {
-    return $this->getCell("SELECT $column FROM $table ORDER BY id ASC LIMIT 1;");
+    return $this->getValue("SELECT $column FROM $table ORDER BY id ASC LIMIT 1;");
   }
 }

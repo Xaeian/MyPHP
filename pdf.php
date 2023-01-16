@@ -310,6 +310,18 @@ class PDF extends \TCPDF
     return $return;
   }
 
+  private $_columnSize;
+  private $_bodyRowCount;
+  private $_headRowCount;
+  private $_headLines;
+  private $_bodyLines;
+  private $_sapceing_mm;
+  private $_fontsize_mm;
+  private array $_columnAlign;
+  private $_width;
+  private $_sep;
+  private $headerFunction;
+
   private function ArrayCrossLine($startX, $startY, $y)
   {
     $this->SetLineStyle($this->arrayLineWidth);
@@ -366,15 +378,15 @@ class PDF extends \TCPDF
   public $arrayWeightBody = [400, 400];
   public $arrayWeightHead = 700;
 
-/**
- * @param array $body array structures - row-by-row in array
- * @param array $head 
- * @param array $columnSize
- * @param array $columnAlign
- * @param float|null $width
- * @param [handler] $headerFunction funkcja wywoływan
- * @return void
- */
+  /**
+   * @param array $body array structures - row-by-row in array
+   * @param array $head 
+   * @param array $columnSize
+   * @param array $columnAlign
+   * @param float|null $width
+   * @param [handler] $headerFunction funkcja wywoływan
+   * @return void
+   */
   public function Array(array $body, array $head, array $columnSize, array $columnAlign, ?float $width = NULL, $headerFunction = NULL)
   {
     $this->_width = isset($width) ? $width : $this->pageWidth - (2 * $this->marginLR);

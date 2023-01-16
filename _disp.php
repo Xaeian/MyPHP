@@ -1,9 +1,6 @@
 <?php
 
-const LIB_DISP_ENTER = PHP_EOL;
-const LIB_DISP_SPACE = "  ";
-
-function disp_serialize_string(string $str, int $limit = 32): string
+function disp_serialize_string(string $str, int $limit = 128): string
 {
   if(strlen($str) > $limit)
     $str = substr($str, 0, $limit - 3) . "...";

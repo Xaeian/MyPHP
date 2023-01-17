@@ -9,6 +9,7 @@ class LOG
   ];
 
   public string $buffer = "";
+  private array $ini;
 
   function setPrecision(string $precision)
   {

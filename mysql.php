@@ -81,6 +81,7 @@ class MYSQL
   {
     if(is_array($sql)) {
       $results = $this->Transaction($sql);
+      if(!$results) return null;
       foreach($results as $result) {
         if(is_object($result)) return $result;
       }

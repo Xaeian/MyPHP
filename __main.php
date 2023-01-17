@@ -84,6 +84,7 @@ function required_fields(object $object, array $fields): ?string
  */
 function is_number(mixed $value): bool
 {
+  if($value === NULL) return false;
   if (preg_match("/^\-?[0-9]*\.?[0-9]+$/", $value)) {
     if (!preg_match("/^\-?0[0-9]+\.?[0-9]+$/", $value)) return true;
     return false;

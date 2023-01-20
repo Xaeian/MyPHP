@@ -36,7 +36,7 @@ class SARY
       $new[$i] = [];
       $j = 0;
       foreach($row as $cell) {
-        $cell = trim($cell);
+        $cell = trim($cell); // if str
         $new[$i][$j] = (is_number($cell)) ? floatval($cell) : $cell;
         $j++;
       }
@@ -411,6 +411,8 @@ class SARY
   {
     return count($this->body);
   }
+
+  private $i;
 
   function Foreach(): ?array
   {

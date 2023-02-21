@@ -5,9 +5,6 @@ const ROOT_PATH = __DIR__."/../../";
 require_once(ROOT_PATH."lib/stdlib.php");
 include_library("crc");
 
-use lib\crc\CRC;
-use function lib\crc\int_to_hex;
-
 //------------------------------------------------------------------------------------------------
 
 $crc = new CRC(8, 0x31, 0xFF, false, false, 0x00); // SHTC3

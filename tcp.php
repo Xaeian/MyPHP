@@ -8,12 +8,12 @@ abstract class TCP_Base
 {
   protected ?Socket $sock = NULL;
   protected LOG $log;
-  protected array $ini;
+  protected int $timeout;
+  public int $buffer = 8192;
 
   function __construct(?LOG $log = NULL)
   {
     $this->log = $log ? $log : new LOG();
-    $this->ini = ini_load("tcp");
   }
 
   function SetTimeout()
@@ -34,78 +34,98 @@ abstract class TCP_Base
 
 class TCP_Server extends TCP_Base
 {
-  public bool $isopen = false;
-
-  function __construct( public string $server = "127.0.0.1",
-                        public int $port = 7000,
-                        public float $timeout = 0, // [ms]
-                        ?LOG $log = NULL
-                        )
-  {
+  function __construct(
+    public string $server = "127.0.0.1",
+    public int $port = 7000,
+    float $timeout = 0, // [ms]
+    ?LOG $log = null
+  ) {
+    $this->timeout = $timeout;
     parent::__construct($log);
     set_time_limit(0);
+    ob_implicit_flush(); 
+    ignore_user_abort(true);
+    ini_set('max_execution_time', 0);
+    $this->sock = $this->Open();
+  }
+
+  function Open(): Socket
+  {
+    try {
+      ob_start();
+      if(($sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)) === false) {
+        $this->ThrowException("socket_create");
+      }
+      socket_set_option($sock, SOL_SOCKET, SO_REUSEADDR, 1);
+      $this->SetTimeout();
+      if(socket_bind($sock, $this->server, $this->port) === false) {
+        $this->ThrowException("socket_bind");
+      }
+      if(socket_listen($sock, 5) === false) {
+        $this->ThrowException("socket_listen");
+      }
+      ob_get_clean();
+    }
+    catch (Exception $e) {
+      $debug = ob_get_clean();
+      $this->log->Warning("Exception code " . $e->getCode() . " with TCP/IP server " . $this->server . ":" . $this->port);
+      $this->log->Warning($e->getMessage());
+      if($debug) $this->log->Debug($debug);
+      if($sock) socket_close($sock);
+      exit();
+    }
+    return $sock;
+  }
+
+  function Close()
+  {
+    socket_close($this->sock);
   }
 
   function Loop($service): void
   {
     ob_start();
     try {
-      if(!$this->isopen) {
-        if(($sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)) === false) {
-          $this->ThrowException("socket_create");
-        }
-        $this->sock = $sock;
-        $this->SetTimeout();
-        socket_set_option($this->sock, SOL_SOCKET, SO_REUSEADDR, 1);
-        if(socket_bind($sock, $this->server, $this->port) === false) {
-          $this->ThrowException("socket_bind");
-        }
-        if(socket_listen($sock, $this->ini["backlog"]) === false) {
-          $this->ThrowException("socket_listen");
-        }
-        $this->isopen = true;
-      }
       if(($msgsock = socket_accept($this->sock)) === false) {
         $this->ThrowException("socket_accept");
       }
-      if(($req = socket_read($msgsock, $this->ini["buffer"], PHP_BINARY_READ)) === false) {
+      if(($req = socket_read($msgsock, $this->buffer, PHP_BINARY_READ)) === false) {
         $this->ThrowException("socket_read");
       }
       ob_get_clean();
-    } catch (Exception $e) {
+      $res = $service($req);
+      ob_start();
+      if(socket_write($msgsock, $res, strlen($res)) === false) {
+        $this->ThrowException("socket_write");
+      }
+      ob_get_clean();
+    }
+    catch (Exception $e) {
       $debug = ob_get_clean();
       $this->log->Warning("Exception code " . $e->getCode() . " with 'tcp/ip' server " . $this->server . ":" . $this->port);
       $this->log->Warning($e->getMessage());
       if($debug) $this->log->Debug($debug);
-      $this->isopen = false;
+      $this->Close();
+      $this->sock = $this->Open();
     }
-    if($this->isopen) {
-      $res = $service($req);
-      socket_write($msgsock, $res, strlen($res));
+    finally {
+      if(isset($msgsock) && $msgsock) {
+        socket_close($msgsock);
+        unset($msgsock);
+      }
     }
-    if(isset($msgsock)) socket_close($msgsock);
-  }
-
-  function Exit()
-  {
-    socket_close($this->sock);
-  }
-
-  function Disp(): string
-  {
-    $open = $this->isopen ? "open" : "close";
-    return "TCP_Server $this->server:$this->port ($open)";
   }
 }
 
 class TCP_Client extends TCP_Base
 {
-  function __construct( public string $server = "127.0.0.1",
-                        public int $port = 7000,
-                        public float $timeout = 2000, // [ms]
-                        ?LOG $log = NULL
-                        )
-  {
+  function __construct(
+    public string $server = "127.0.0.1",
+    public int $port = 7000,
+    float $timeout = 2000, // [ms]
+    ?LOG $log = NULL
+  ) {
+    $this->timeout = $timeout;
     parent::__construct($log);
   }
 
@@ -123,7 +143,7 @@ class TCP_Client extends TCP_Base
       }
       socket_write($sock, $req, strlen($req));
       $res = "";
-      while($get = socket_read($sock, $this->ini["buffer"])) $res .= $get;
+      while($get = socket_read($sock, $this->buffer)) $res .= $get;
       if($res === "") $this->log->Warning("Server TCP/IP $this->server:$this->port is not responding");
       socket_close($sock);
       ob_get_clean();

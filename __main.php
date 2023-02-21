@@ -2,6 +2,19 @@
 
 //-------------------------------------------------------------------------------------------------
 
+/**
+ * The function unlocks all php errors and redirects them to the indicated file `$path`
+ * @param string $path File path for php log redirection
+ * @param string $deprecated Whether to log information about deprecated
+ */
+function php_error_redirection(string $path, bool $deprecated = false)
+{
+  if($deprecated) error_reporting(E_ALL);
+  else error_reporting(E_ALL ^ E_DEPRECATED);
+  ini_set("log_errors", 1);
+  ini_set("error_log", $path);
+}
+
 const LIB_PATH = __DIR__ . "/";
 defined('ROOT_PATH') or define('ROOT_PATH', LIB_PATH);
 $_settings_ini = parse_ini_file(LIB_PATH . "settings.ini", true);
@@ -21,14 +34,71 @@ function ini_load(string $lib)
  */
 function include_library(string ...$libs)
 {
-  foreach ($libs as $lib)
+  foreach($libs as $lib)
     require_once(LIB_PATH . certain_suffix($lib, ".php"));
 }
 
 require_once(LIB_PATH . "_arg.php");
 require_once(LIB_PATH . "_csv.php");
-require_once(LIB_PATH . "_disp.php");
 require_once(LIB_PATH . "_rand.php");
+
+//------------------------------------------------------------------------------------------------- DISP
+
+const DISP_BRACKETS_COLORS = ["\e[35m", "\e[33m", "\e[31m", "\e[36m", "\e[32m",  "\e[34m"];
+
+function disp_serialize_array(array $prints, bool $type = false, int $nesting = 0): string
+{
+  $assoc = is_assoc($prints) ? true : false;
+  $disp = "";
+  foreach ($prints as $key => $print) {
+    if($assoc) $disp .= $key . ":";
+    if($type) $disp .= "\e[90m(" .gettype($print) . ")\e[39m";
+    if(is_scalar($print) || $print === NULL) {
+      $disp .= match(gettype($print)) {
+        "boolean", "NULL" => "\e[38;5;25m",
+        "integer", "double" => "\e[38;5;150m",
+        "string" => "\e[38;5;216m",
+      };
+      if(!is_string($print)) $print = json_encode($print);
+      $disp .= $print . "\e[39m";
+    }
+    else {
+      $code = DISP_BRACKETS_COLORS[$nesting % count(DISP_BRACKETS_COLORS)];
+      if(is_object($print)) {
+        if(method_exists($print, "__toString")) { // TODO: tostring
+          $disp .= $code . "{\e[39m";
+          $disp .= (string)$print;
+          $disp .= $code . "}\e[39m";
+        }
+        else $print = (array)$print;
+      }
+      if(is_array($print)) {
+        $disp .= $code . "[\e[39m";
+        $disp .= disp_serialize_array($print, $type, $nesting + 1);
+        $disp .= $code . "]\e[39m";
+      }
+    }
+    $disp .= " ";
+  }
+  return rtrim($disp);
+}
+
+function disp(mixed ...$prints)
+{
+  print(disp_serialize_array($prints) . PHP_EOL);
+}
+
+function disp_type(mixed ...$prints)
+{
+  print(disp_serialize_array($prints, true) . PHP_EOL);
+}
+
+function var_dump_html($object)
+{
+  echo "<pre>";
+  var_dump($object);
+  echo "</pre>";
+}
 
 //-------------------------------------------------------------------------------------------------
 
@@ -65,7 +135,7 @@ function string_to_data(string $str): array
 function data_to_string(array $data): string
 {
   $str = "";
-  foreach ($data as $char) $str .= chr((int)$char);
+  foreach($data as $char) $str .= chr((int)$char);
   return $str;
 }
 
@@ -85,8 +155,8 @@ function required_fields(object $object, array $fields): ?string
 function is_number(mixed $value): bool
 {
   if($value === NULL) return false;
-  if (preg_match("/^\-?[0-9]*\.?[0-9]+$/", $value)) {
-    if (!preg_match("/^\-?0[0-9]+\.?[0-9]+$/", $value)) return true;
+  if(preg_match("/^\-?[0-9]*\.?[0-9]+$/", $value)) {
+    if(!preg_match("/^\-?0[0-9]+\.?[0-9]+$/", $value)) return true;
     return false;
   }
   return false;
@@ -97,9 +167,9 @@ function is_number(mixed $value): bool
  */
 function is_vector(mixed &$subject)
 {
-  if (!is_array($subject)) return false;
-  foreach ($subject as $i => $sub) {
-    if (is_array($sub)) return false;
+  if(!is_array($subject)) return false;
+  foreach($subject as $i => $sub) {
+    if(is_array($sub)) return false;
   }
   return true;
 }
@@ -116,9 +186,9 @@ function is_assoc(array $array)
  */
 function to_vector(mixed &$subject, $length = 1)
 {
-  if (!is_array($subject)) {
+  if(!is_array($subject)) {
     $value = $subject;
-    if (is_numeric($value)) $subject = vector_init_inc($length, $value);
+    if(is_numeric($value)) $subject = vector_init_inc($length, $value);
     else $subject = vector_init($length, $value);
     return true;
   }
@@ -138,17 +208,17 @@ function make_vector($subject, $length = 1)
 function objectarray_to_assocarray(array $object, string $key = "key", string $value = "value")
 {
   $assoc = [];
-  foreach ($object as $cell) $assoc[$cell->{$key}] = $cell->{$value};
+  foreach($object as $cell) $assoc[$cell->{$key}] = $cell->{$value};
   return $assoc;
 }
 
 function to_array2d(&$subject, $flat = false)
 {
   to_vector($subject);
-  if ($flat) {
-    if (is_vector($subject)) $subject = [$subject];
+  if($flat) {
+    if(is_vector($subject)) $subject = [$subject];
   } else {
-    foreach ($subject as $i => $sub) to_vector($subject[$i]);
+    foreach($subject as $i => $sub) to_vector($subject[$i]);
   }
 }
 
@@ -162,7 +232,7 @@ function same_names(string $name1, string $name2): bool
 {
   $name1 = strtolower_utf8(preg_replace('/[^0-9A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+/', "", $name1));
   $name2 = strtolower_utf8(preg_replace('/[^0-9A-Za-zżźćńółęąśŻŹĆĄŚĘŁÓŃ]+/', "", $name2));
-  if ($name1 == $name2) return true;
+  if($name1 == $name2) return true;
   return false;
 }
 
@@ -305,9 +375,9 @@ function json_encode_pretty(object|array $object)
   $json = str_replace("\u0022", '\"', $json);
 
   $json = preg_replace('/^(  +?)\\1(?=[^ ])/m', "$1", $json);
-  if (preg_match_all('/\[\n\ *(.|\,\n){1,64}\n\ *\]/', $json, $matches)) {
+  if(preg_match_all('/\[\n\ *(.|\,\n){1,64}\n\ *\]/', $json, $matches)) {
     $matches = array_unique($matches[0]);
-    foreach ($matches as $matche) {
+    foreach($matches as $matche) {
       $replacement = preg_replace(['/\,\n\ */', '/\n\ */'], [", ", ""], $matche);
       $json = str_replace($matche, $replacement, $json);
     }
@@ -324,7 +394,7 @@ function json_save_pretty(string $location, object|array $object)
 function sql_load($location): array|null|bool
 {
   $location = certain_suffix($location, ".sql");
-  if (file_exists($location)) return split_sql(file_get_contents($location));
+  if(file_exists($location)) return split_sql(file_get_contents($location));
   else return false;
 }
 
@@ -332,14 +402,14 @@ function sql_save(string $location, array|string $sqls)
 {
   $location = certain_suffix($location, ".sql");
   $string = "";
-  foreach ($sqls as $sql) $string .= $sql . ";" . PHP_EOL;
+  foreach($sqls as $sql) $string .= $sql . ";" . PHP_EOL;
   $string = rtrim($string);
   file_save($location, json_encode($string));
 }
 
 function data_load(string $location)
 {
-  if (file_exists($location)) $string = file_get_contents($location);
+  if(file_exists($location)) $string = file_get_contents($location);
   else return false;
   return string_to_data($string);
 }
@@ -356,7 +426,7 @@ function file_list($location = "./", $extension = [], $regex_and = [], $regex_or
   to_vector($regex_and);
   to_vector($regex_or);
 
-  foreach ($extension as $ext) {
+  foreach($extension as $ext) {
     $ext = preg_replace("/[^a-zA-Z0-9]+/", "", $ext);
     array_push($regex_or, "/\." . $ext . "$/");
   }
@@ -364,25 +434,25 @@ function file_list($location = "./", $extension = [], $regex_and = [], $regex_or
   $list = scandir($location, $sort);
   $output = [];
 
-  foreach ($list as $name) {
-    if (is_file($location . $name)) {
-      if (count($regex_or)) {
+  foreach($list as $name) {
+    if(is_file($location . $name)) {
+      if(count($regex_or)) {
         $ok = false;
-        foreach ($regex_or as $ro)
-          if (preg_match($ro, $name)) {
+        foreach($regex_or as $ro)
+          if(preg_match($ro, $name)) {
             $ok = true;
             break;
           }
       } else $ok = true;
 
-      if ($ok && count($regex_and)) {
-        foreach ($regex_and as $ra)
-          if (!preg_match($ra, $name)) {
+      if($ok && count($regex_and)) {
+        foreach($regex_and as $ra)
+          if(!preg_match($ra, $name)) {
             $ok = false;
             break;
           }
       }
-      if ($ok) array_push($output, $name);
+      if($ok) array_push($output, $name);
     }
   }
   return $output;
@@ -391,7 +461,7 @@ function file_list($location = "./", $extension = [], $regex_and = [], $regex_or
 function file_remover($location = "./", $extension = [], $regex_and = [], $regex_or = [])
 {
   $file_list = file_list($location, $extension, $regex_and, $regex_or, 0);
-  foreach ($file_list as $name) unlink($location . $name);
+  foreach($file_list as $name) unlink($location . $name);
 }
 
 function file_loader($location = "./", $mode = "file", $extension = [], $regex_and = [], $regex_or = [], $sort = 0): array
@@ -400,7 +470,7 @@ function file_loader($location = "./", $mode = "file", $extension = [], $regex_a
   if(!file_exists($location)) return [];
   $list = file_list($location, $extension, $regex_and, $regex_or, $sort);
   $output = [];
-  foreach ($list as $name) {
+  foreach($list as $name) {
     $path = $location . $name;
     switch ($mode) {
       case "file":
@@ -424,8 +494,8 @@ function file_saver($location = "./", $list = [], $mode = "file")
 {
   $location = preg_replace("/[\\/]+$/", "", $location) . "/";
 
-  foreach ($list as $name => $content) {
-    if (!file_exists($location)) mkdir($location, 0777, true);
+  foreach($list as $name => $content) {
+    if(!file_exists($location)) mkdir($location, 0777, true);
     $path = $location . $name;
 
     switch ($mode) {
@@ -447,11 +517,11 @@ function file_saver($location = "./", $list = [], $mode = "file")
 
 function folder_delete($location, bool $alsoThisOne = true)
 {
-  if (file_exists($location)) {
+  if(file_exists($location)) {
     $it = new RecursiveDirectoryIterator($location, RecursiveDirectoryIterator::SKIP_DOTS);
     $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
-    foreach ($files as $file) {
-      if ($file->isDir()) {
+    foreach($files as $file) {
+      if($file->isDir()) {
         rmdir($file->getRealPath());
       } else {
         unlink($file->getRealPath());
@@ -463,7 +533,7 @@ function folder_delete($location, bool $alsoThisOne = true)
 
 function folder_copy($source, $dest)
 {
-  if (!is_dir($source)) {
+  if(!is_dir($source)) {
     copy($source, $dest);
     return;
   }
@@ -471,8 +541,8 @@ function folder_copy($source, $dest)
   $dir = opendir($source);
   @mkdir($dest);
   while (false !== ($file = readdir($dir))) {
-    if (($file != '.') && ($file != '..')) {
-      if (is_dir($source . '/' . $file)) folder_copy($source . '/' . $file, $dest . '/' . $file);
+    if(($file != '.') && ($file != '..')) {
+      if(is_dir($source . '/' . $file)) folder_copy($source . '/' . $file, $dest . '/' . $file);
       else copy($source . '/' . $file, $dest . '/' . $file);
     }
   }
@@ -484,14 +554,14 @@ function require_once_folder($location)
   $location = preg_replace("/[\\/]+$/", "", $location) . "/";
   $files = file_list($location);
 
-  foreach ($files as $file)
+  foreach($files as $file)
     require_once($location . $file);
 }
 
-function msleep($msec)
+function msleep(int $msec)
 {
-  if ($msec >= 0) {
-    usleep(1000 * intval($msec));
+  if($msec >= 0) {
+    usleep(1000 * $msec);
   }
 }
 
@@ -523,7 +593,7 @@ function certain_suffix(string $string, string $suffix) : string
 function str_replace_right(string $search, string $replace, string $subject) : string
 {
   $pos = strrpos($subject, $search);
-  if ($pos !== false)
+  if($pos !== false)
     $subject = substr_replace($subject, $replace, $pos, strlen($search));
   return $subject;
 }
@@ -571,10 +641,10 @@ function explode_noempty(string $separator, string $string, int $limit = PHP_INT
 
 function vector_init_inc(int $length, float $start = 1.0, float|null $stop = NULL)
 {
-  if ($stop === NULL) $stop = $start;
+  if($stop === NULL) $stop = $start;
 
   $vector = [];
-  if (($length - 1)) $step = ($stop - $start) / ($length - 1);
+  if(($length - 1)) $step = ($stop - $start) / ($length - 1);
   else $step = 0;
 
   for ($i = 0; $i < $length; $i++) {
@@ -593,47 +663,47 @@ function vector_init(int $length, mixed $string)
 
 function vector_set($vector, $set)
 {
-  foreach ($vector as $i => $value) $vector[$i] = $set;
+  foreach($vector as $i => $value) $vector[$i] = $set;
   return $vector;
 }
 
 function vector_sum($vector)
 {
   $sum = 0;
-  foreach ($vector as $i => $value) $sum += $vector[$i];
+  foreach($vector as $i => $value) $sum += $vector[$i];
   return $sum;
 }
 
 function vector_abs($vector)
 {
-  foreach ($vector as $i => $value) $vector[$i] = abs($vector[$i]);
+  foreach($vector as $i => $value) $vector[$i] = abs($vector[$i]);
   return $vector;
 }
 
 function vector_pow($vector)
 {
-  foreach ($vector as $i => $value) $vector[$i] = $vector[$i] * $vector[$i];
+  foreach($vector as $i => $value) $vector[$i] = $vector[$i] * $vector[$i];
   return $vector;
 }
 
 function vector_div($vector, $div)
 {
-  if ($div) {
-    foreach ($vector as $i => $value) $vector[$i] /= $div;
+  if($div) {
+    foreach($vector as $i => $value) $vector[$i] /= $div;
   }
   return $vector;
 }
 
 function vector_multi($vector, $multi)
 {
-  foreach ($vector as $i => $value) $vector[$i] *= $multi;
+  foreach($vector as $i => $value) $vector[$i] *= $multi;
   return $vector;
 }
 
 function vector_increase($vector)
 {
   $sum = 0;
-  foreach ($vector as $i => $value) {
+  foreach($vector as $i => $value) {
     $sum += $vector[$i];
     $vector[$i] = $sum;
   }
@@ -648,9 +718,9 @@ function vector_increase($vector)
  */
 function deep_property(array|object $subject, string $property) : mixed
 {
-  if (is_array($subject)) {
+  if(is_array($subject)) {
     $return = [];
-    foreach ($subject as $i => $sub)
+    foreach($subject as $i => $sub)
       $return[$i] = deep_property($sub, $property);
     return $return;
   } else return $subject->$property;
@@ -754,7 +824,7 @@ function matrix_transpose($array)
 {
   if(is_vector($array)) {
     $out = [];
-    foreach ($array as $key => $value) {
+    foreach($array as $key => $value) {
       $out[$key] = [];
       $out[$key][0] = $value;
     }
@@ -762,8 +832,8 @@ function matrix_transpose($array)
   }
 
   $out = [];
-  foreach ($array as $key => $sub_array) {
-    foreach ($sub_array as $sub_key => $value)
+  foreach($array as $key => $sub_array) {
+    foreach($sub_array as $sub_key => $value)
       $out[$sub_key][$key] = $value;
   }
   return $out;
@@ -792,17 +862,17 @@ function split(string $str, string $split = " ", string $stringChar = '"', strin
   $count = count($split);
 
   for ($i = 0; $i < count($str); $i++) {
-    if ($str[$i] === $stringChar) {
-      if (!$mute) {
+    if($str[$i] === $stringChar) {
+      if(!$mute) {
         $muteStart = true;
         $mute = true;
       }
     }
-    if (!$mute) {
+    if(!$mute) {
       for ($j = 0; $j < $count; $j++) {
-        if ($str[$i + $j] == $split[$j]) {
-          if ($j + 1 == $count) {
-            if (!$inc) $array[$k] = str_replace($stringChar, "", $array[$k]);
+        if($str[$i + $j] == $split[$j]) {
+          if($j + 1 == $count) {
+            if(!$inc) $array[$k] = str_replace($stringChar, "", $array[$k]);
             $inc = 0;
             $k++;
             $array[$k] = "";
@@ -814,13 +884,13 @@ function split(string $str, string $split = " ", string $stringChar = '"', strin
       $inc++;
     }
     $array[$k] .= $str[$i];
-    if ($mute && !$muteStart) {
-      if ($str[$i] == $escapeChar) $escape = true;
-      else if (!$escape && $str[$i] == $stringChar) $mute = false;
+    if($mute && !$muteStart) {
+      if($str[$i] == $escapeChar) $escape = true;
+      else if(!$escape && $str[$i] == $stringChar) $mute = false;
       else $escape = false;
     }
     $muteStart = false;
-    if ($i + 1 == count($str)) if (!$inc) $array[$k] = str_replace($stringChar, "", $array[$k]);
+    if($i + 1 == count($str)) if(!$inc) $array[$k] = str_replace($stringChar, "", $array[$k]);
   }
   return $array;
 }
@@ -828,7 +898,7 @@ function split(string $str, string $split = " ", string $stringChar = '"', strin
 function split_sql(string $sqls): array
 {
   $sqls = split($sqls, ";", "'");
-  foreach ($sqls as $i => $sql) {
+  foreach($sqls as $i => $sql) {
     $sql = preg_replace("/[\n\r]+/", "", $sql);
     $sql = preg_replace("/[\ ]+/", " ", $sql);
     $sql = preg_replace("/\ ?\(\ ?/", "(", $sql);
@@ -839,8 +909,8 @@ function split_sql(string $sqls): array
   }
   $output = [];
   $i = 0;
-  foreach ($sqls as $sql) {
-    if ($sql && $sql != " ") {
+  foreach($sqls as $sql) {
+    if($sql && $sql != " ") {
       $output[$i] = $sql;
       $i++;
     }

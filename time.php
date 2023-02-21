@@ -1,7 +1,5 @@
 <?php
 
-include_library("fvs");
-
 class TIME extends DateTime
 {
   function __construct(
@@ -12,8 +10,6 @@ class TIME extends DateTime
   {
     if($time === null) $time = "now";
     $timezone = $timezone ?: new DateTimeZone("UTC");
-    parent::__construct($time, $timezone);
-
     if(is_number($time)) {
       parent::__construct("now", $timezone);
       $this->setStamp($time);
@@ -41,14 +37,20 @@ class TIME extends DateTime
     return (float)$this->format($this->stampFormat);
   }
 
-  function modifyStamp($modyfier)
+  function modifyStamp(float $modyfier)
   {
     $this->setStamp($this->getStamp() + $modyfier);
   }
 
-  function getString(): string
+  function getString(?string $format = NULL): string
   {
-    return $this->format($this->stringFormat);
+    $format = $format ?: $this->stringFormat;
+    return $this->format($format);
+  }
+
+  function __toString()
+  {
+    return $this->getString();
   }
 
   static function isInterval(string $interval) : bool
@@ -70,7 +72,6 @@ class TIME extends DateTime
     else $value = 0;
     $interval = strtolower($interval);
     $factor = preg_replace("/[^a-z]/", "", $interval);
-  
     if($factor == "y" || $factor == "mo") {
       $str = match($factor) {
         "y" => $value . " year",
@@ -79,7 +80,6 @@ class TIME extends DateTime
       $this->modify($str);
       return;
     }
-  
     $this->modifyStamp(match($factor) {
       "w" => 7 * 24 * 3600 * $value,
       "d" => 24 * 3600 * $value,
@@ -151,7 +151,6 @@ class TIME extends DateTime
   {
     $factor = strtolower($factor);
     $factor = preg_replace("/[^a-z]/", "", $factor);
-
     switch($factor) {
       case "year": case "y": $this->setMonth(1); break;
       case "month": case "mo": $this->setDay(1); break;
@@ -200,49 +199,49 @@ class TIME extends DateTime
     else return false;
   }
 
-  function createByLoc(FVS &$fvs, string $name): TIME|null
-  {
-    $time = $fvs->Load($name);
-    if($time) $time = new TIME($time, $this->stringFormat, $this->stampFormat, $this->timezone);
-    return $time;
-  }
+  // function createByLoc(FVS &$fvs, string $name): TIME|null
+  // {
+  //   $time = $fvs->Load($name);
+  //   if($time) $time = new TIME($time, $this->stringFormat, $this->stampFormat, $this->timezone);
+  //   return $time;
+  // }
 
-  function Tick(FVS &$fvs, string $name, string $interval)
-  {
-    if($last = $this->createByLoc($fvs, $name)) {
-      $limit = $last->createByInterval($interval);
-      if($this->IsGreaterThen($limit)) {
-        $fvs->Save($name, $this->getString());
-        return true;
-      }
-    }
-    $fvs->Save($name, $this->getString());
-    return false;
-  }
+  // function Tick(FVS &$fvs, string $name, string $interval)
+  // {
+  //   if($last = $this->createByLoc($fvs, $name)) {
+  //     $limit = $last->createByInterval($interval);
+  //     if($this->IsGreaterThen($limit)) {
+  //       $fvs->Save($name, $this->getString());
+  //       return true;
+  //     }
+  //   }
+  //   $fvs->Save($name, $this->getString());
+  //   return false;
+  // }
 
-  function WatchdogRise(FVS &$fvs, string $time, string $state): bool
-  {
-    $fvs->Save($time, $this->getString());
-    $rise = false;
-    if(!$fvs->Load($state)) {
-      $fvs->Save($state, True);
-      $rise = true;
-    }
-    return $rise;
-  }
+  // function WatchdogRise(FVS &$fvs, string $time, string $state): bool
+  // {
+  //   $fvs->Save($time, $this->getString());
+  //   $rise = false;
+  //   if(!$fvs->Load($state)) {
+  //     $fvs->Save($state, True);
+  //     $rise = true;
+  //   }
+  //   return $rise;
+  // }
 
-  function WatchdogFall(FVS &$fvs, string $time, string $state, string $interval): ?TIME
-  {
-    $last = $this->createByLoc($fvs, $time);
-    if($last) {
-      $limit = $last->createByInterval($interval);
-      if($this->IsGreaterThen($limit)) {
-        if($fvs->Load($state)) {
-          $fvs->Save($state, False);
-          return $last;
-        }
-      }
-    }
-    return NULL;
-  }
+  // function WatchdogFall(FVS &$fvs, string $time, string $state, string $interval): ?TIME
+  // {
+  //   $last = $this->createByLoc($fvs, $time);
+  //   if($last) {
+  //     $limit = $last->createByInterval($interval);
+  //     if($this->IsGreaterThen($limit)) {
+  //       if($fvs->Load($state)) {
+  //         $fvs->Save($state, False);
+  //         return $last;
+  //       }
+  //     }
+  //   }
+  //   return NULL;
+  // }
 }

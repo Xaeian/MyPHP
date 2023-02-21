@@ -1,6 +1,0 @@
-2023-01-18 19:18:57 ERROR Access denied for user 'root'@'localhost' (using password: NO)
-2023-01-18 19:22:31 ERROR Access denied for user 'root'@'localhost' (using password: NO)
-2023-01-18 19:25:42 ERROR Access denied for user 'root'@'localhost' (using password: NO)
-2023-01-18 19:26:23 ERROR Unknown column 'companzies.name' in 'field list'
-2023-01-18 19:27:02 ERROR Unknown column 'companzies.name' in 'field list'
-2023-01-18 19:27:25 ERROR Unknown column 'companzies.name' in 'field list'

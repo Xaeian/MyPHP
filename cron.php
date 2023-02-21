@@ -1,27 +1,20 @@
 <?php
 
-include_library("time");
+include_library("time", "var");
 
 class CRON
 {
-  private TIME $time;
-
-  function __construct(public FVS &$fvs)
+  function __construct(public FVAR|DBVAR &$var, public TIME &$time)
   {
     $this->time = new TIME();
   }
 
-  function Refresh(?TIME &$time = NULL)
+  private function Next(TIME $time, string $interval): TIME
   {
-    $this->time = new TIME();
-  }
-
-  private function Next(TIME $run, string $interval): TIME
-  {
-    while($run->IsSmallerThen($this->time)) {
-      $run->setInterval($interval);
+    while($time->IsSmallerThen($this->time)) {
+      $time->setInterval($interval);
     }
-    return $run;
+    return $time;
   }
 
   /**
@@ -31,21 +24,51 @@ class CRON
     * They will be scheduled at `$interval` thereafter.
     * The prefix `cron-` will be appended to the variable `$name`.
     */
-  public function Task(string $name, string $interval, string $init = "2022-01-01 00:00:00"): bool
+  function Task(string $name, string $interval, string $init = "2023-01-01 00:00:00"): bool
   {
-    if($run = $this->time->createByLoc($this->fvs, $name)) {
-      if($run->IsSmallerThen($this->time)) {
-        $run = $this->Next($run, $interval);
-        $this->fvs->Save($name, $run->getString());
+    $strtime = $this->var->Get($name);    
+    if($strtime) {
+      $time = new TIME($strtime);
+      if($time->IsSmallerThen($this->time)) {
+        $time = $this->Next($time, $interval);
+        $this->var->Set($name, (string)$time);
         return true;
       }
       return false;
-    } else {
-      $run = new TIME($init);
-      $run = $this->Next($run, $interval);
-      $this->fvs->Save($name, $run->getString());
+    }
+    else {
+      $time = new TIME($init);
+      $time = $this->Next($time, $interval);
+      $this->var->Set($name, (string)$time);
       return false;
     }
     return false;
+  }
+
+  function Rise(string $nameTime, string $nameState): bool
+  {
+    $this->var->Set($nameTime, (string)$this->time);
+    $rise = false;
+    if(!$this->var->Get($nameState)) {
+      $this->var->Set($nameState, True);
+      $rise = true;
+    }
+    return $rise;
+  }
+
+  function Fall(string $nameTime, string $nameState, string $interval): ?TIME
+  {
+    $strlast = $this->var->Get($nameTime);
+    if($strlast) {
+      $last = new TIME($strlast);
+      $next = $last->createByInterval($interval);
+      if($this->time->IsGreaterThen($next)) {
+        if($this->var->Get($nameState)) {
+          $this->var->Set($nameState, False);
+          return $last;
+        }
+      }
+    }
+    return NULL;
   }
 }

@@ -25,9 +25,61 @@ Modules starting with `_` are loaded automatically. The rest should be included 
 function split(string $str, string $split = " ", string $stringChar = '"', string $escapeChar = "\\"):
 ```
 
-# influx
+# Log
 
-## InfluxDB
+It allows for quite accessible log management in the server application _(and not only)_
+
+```
+TODO: Drop obsolete entries
+```
+
+Unlike the common solutions, there is a possibility of passing objects and arrays to the controller, which, after encoding to jeson, will save it in yours container, and create references in the log file
+
+```php
+$complex = [
+  "code" => 12,
+  "message" => "Objects and arrays are saved in separate files with references",
+  "error" => false
+];
+$log->Error("Some kind of problem, check this", $complex);
+```
+
+After executing the above code, this type of entry appears in the log file:
+
+```log
+2005-04-02 21:37:00 ERROR Some kind of problem, check this file://C:/Apache/htdocs/lib/php/examples/logs/J6njxqsX.json
+```
+
+# `VAR`
+
+We can store global non-volatile variables in two ways:
+
+- In **file** system - what the `FVAR` class will help us with
+- In **database** - the work with which is facilitated by the `DBVAR` class
+
+## `FVAR`
+
+Storage variables in the file system require a folder path for files with variables.
+
+```php
+$path = __DIR__ . "/var/";
+$fvar = new FVAR($path);
+```
+
+It allows you to write and read primitive and complex variables.
+However, as with file operations, you need to consider simultaneous access at the same time by parallel running processes.
+
+```php
+$fvar->Save("int", 12);
+$fvar->Save("float", 7.83);
+$fvar->Save("str", "text");
+$fvar->Save("bool", True);
+$fvar->Save("null", null);
+$fvar->Save("array", [9, 5.79, "text2", False, null]);
+$fvar->Save("object", (object)["int"=>7, "float"=>2.45, "str"=>"text3", "bool"=>True, "null"=>null]);
+```
+
+# influx
 
 The library _"simplifies"_ access to the database from **InfluxDB** data via a driver provided by Google (requires installation - preferably via **composer**). Only basic functionalities have been implemented in the library.
 

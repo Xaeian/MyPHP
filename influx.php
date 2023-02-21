@@ -14,6 +14,7 @@ use InfluxDB2\Service\OrganizationsService;
 use InfluxDB2\Model\WritePrecision;
 use InfluxDB2\Point;
 use InfluxDB2\ApiException;
+use InfluxDB2\QueryApi;
 use LOG;
 
 class INFLUX
@@ -44,7 +45,7 @@ class INFLUX
     private string $organization = "",
     private string $bucket = "",
     public string $url = "http://localhost:8086",
-    public int $timeout = 10,
+    public int $timeout = 1,
     LOG $log = NULL
   ) {
     $this->log = $log ? $log : new LOG();
@@ -69,7 +70,6 @@ class INFLUX
   {
     if(!isset($this->organizationService))
       $this->organizationService = $this->client->createService(OrganizationsService::class);
-
     $output = [];
     $orgs = $this->organizationService->getOrgs()->getOrgs();
     foreach ($orgs as $org) {
@@ -111,10 +111,8 @@ class INFLUX
   {
     if(!isset($this->bucketService))
       $this->bucketService = $this->client->createService(BucketsService::class);
-
     $output = [];
     $buckets = $this->bucketService->getBuckets()->getBuckets();
-
     foreach ($buckets as $bucket) {
       if(!$noSystemType || $bucket["type"] != "system")
         $output[$bucket["name"]] = $bucket["id"];
@@ -126,13 +124,10 @@ class INFLUX
   {
     if(!isset($this->bucketService))
       $this->bucketService = $this->client->createService(BucketsService::class);
-
     $output = [];
     $buckets = $this->bucketService->getBuckets();
     $buckets = $buckets["buckets"];
-
     $orgs = array_flip($this->getOrganizationList());
-
     foreach ($buckets as $bucket) {
       if(!$noSystemType || $bucket["type"] != "system") {
         if(!isset($output[$orgs[$bucket["org_id"]]]))
@@ -198,7 +193,6 @@ class INFLUX
     try {
       $writeApi = $this->client->createWriteApi();
       $writeApi->write($data, $precision ?: $this->precision, $this->bucket, $this->organization);
-      $writeApi->close();
       ob_get_clean();
     } catch (ApiException $e) {
       $debug = ob_get_clean();
@@ -206,6 +200,12 @@ class INFLUX
       $this->log->Warning($e->getMessage());
       if($debug) $this->log->Debug($debug);
       $this->Init();
+    }
+    finally {
+      if(isset($writeApi) && $writeApi) {
+        $writeApi->close();
+        unset($writeApi);
+      }
     }
   }
 
@@ -243,6 +243,8 @@ class INFLUX
 
   //------------------------------------------------------------------------------------------------------------------- Select
 
+  private QueryApi $queryApi;
+
   /**
     * @param string $query Flux query string
     * @param string $mode "raw", "stream" or empty
@@ -252,7 +254,6 @@ class INFLUX
   {
     if(!isset($this->queryApi))
       $this->queryApi = $this->client->createQueryApi();
-
     return match (strtolower($mode)) {
       "raw" => $this->queryApi->queryRaw($query, $this->organization),
       "stream" => $this->queryApi->queryStream($query, $this->organization),
@@ -264,7 +265,6 @@ class INFLUX
   {
     $temp = [];
     $results = $this->Run($query);
-
     foreach($results as $result) {
       foreach($result->records as $record) {
         $row = $record->values; 

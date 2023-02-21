@@ -3,6 +3,7 @@
 class CRC
 {
   public array $array = [];
+  private int $topbit;
   const CRC_MASK = [8=>0xFF, 16=>0xFFFF, 32=>0xFFFFFFFF];
 
   public function IntToHex(int $int, int $width): string
@@ -49,9 +50,11 @@ class CRC
     public int $width = 8,
     public int $polynomial = 0x31,
     public int $initial = 0xFF,
-    public bool $reflectIn = false, // reflect_data_in
-    public bool $reflectOut = false, // reflect_data_out
-    public int $xor = 0x00)
+    public bool $reflectIn = false, # reflect_data_in
+    public bool $reflectOut = false, # reflect_data_out
+    public int $xor = 0x00,
+    public bool $invertOut = false
+    )
   {
     $this->topbit = (1 << ($width - 1));
     $this->Init();
@@ -61,7 +64,6 @@ class CRC
   {
     for($i = 0; $i < 256; ++$i) {
       $remainder = $i << ($this->width - 8);
-
       for($bit = 8; $bit > 0; --$bit) {
         if($remainder & $this->topbit) $remainder = ($remainder << 1) ^ $this->polynomial;
         else $remainder = ($remainder << 1);
@@ -98,7 +100,11 @@ class CRC
     }
     $remainder &= self::CRC_MASK[$this->width];
     if($this->reflectOut) $remainder = $this->ReflectBit($remainder, $this->width);
-    return $remainder ^ $this->xor;
+    $remainder = $remainder ^ $this->xor;
+    if($this->invertOut) {
+      $this->toInt(array_reverse($this->toArray($remainder)));
+    }
+    return $remainder;
   }
 
   function toArray(int $crc): array

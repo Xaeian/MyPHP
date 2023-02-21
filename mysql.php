@@ -85,6 +85,7 @@ class MYSQL
       foreach($results as $result) {
         if(is_object($result)) return $result;
       }
+      return true;
     }
     return $this->Run($sql);
   }
@@ -255,8 +256,14 @@ class MYSQL
 
   //------------------------------------------------------------------------------------------------------------------- Database
 
-  function createDatabase(string $name, bool $setActive = true)
+  function createDatabase(?string $name = NULL, bool $setActive = true)
   {
+    if(!$name) {
+      $name = $this->db;
+      $setActive = true;
+      $this->db = "";
+    }
+    $name = $name ?: $this->db;
     $sql = "CREATE DATABASE IF NOT EXISTS {$name} CHARACTER SET utf8 COLLATE utf8_bin;";
     $result = $this->Run($sql);
     if($setActive) $this->db = $name;
@@ -321,32 +328,35 @@ class MYSQL
   }
   //------------------------------------------------------------------------------------------------------------------- Insert
 
-  function insertRowSQL(string $table, array $row)
+  function insertRowSQL(string $table, array $row, bool $ignore = true)
   {
-    $sql = "INSERT INTO {$table} VALUES(";
+    $sql = "INSERT " . ($ignore ? "IGNORE" : "") . " INTO {$table} VALUES(";
     foreach($row as $value) $sql .= $this->EncodeInsert($value) . ",";
     return rtrim($sql, ",") . ");";
   }
 
-  function insertRow(string $table, array $row)
+  function insertRow(string $table, array $row, bool $ignore = true)
   {
-    return $this->Run($this->insertRowSQL($table, $row));
+    return $this->Run($this->insertRowSQL($table, $row, $ignore));
   }
 
-  function insertArraySQL(string $table, array $array)
+  function insertArraySQL(string $table, array $array, bool $ignore = true): string
   {
-    $sql = "INSERT INTO {$table} VALUES(";
+    if(!$array) return "";
+    $sql = "INSERT " . ($ignore ? "IGNORE" : "") . " INTO {$table} VALUES(";
     foreach($array as $row) {
+      if(!$row) return "";
       foreach($row as $value) $sql .= $this->EncodeInsert($value) . ",";
       $sql = rtrim($sql, ",") . "),(";
     }
     return remove_suffix($sql, ",(") . ";";
   }
 
-  function insertArray(string $table, array $array)
+  function insertArray(string $table, array $array, bool $ignore = true)
   {
-    return $this->Run($this->insertArraySQL($table, $array));
+    return $this->Run($this->insertArraySQL($table, $array, $ignore));
   }
+  
   //------------------------------------------------------------------------------------------------------------------- Update
 
   function updateValueSQL(string $table, string $column, mixed $value, int $id)
@@ -387,29 +397,44 @@ class MYSQL
   }
   //------------------------------------------------------------------------------------------------------------------- Delete
 
-  function deleteSQL(string $table, int|array $ids, string $column = "id")
+  function deleteSQL(string $table, mixed $keys, string $column = "id")
   {
-    to_vector($ids);
+    to_vector($keys);
     $sql = "DELETE FROM $table WHERE";
-    foreach($ids as $id) $sql .= " $column=$id AND";
+    foreach($keys as $key) {
+      $key = $this->EncodeInsert($key);
+      $sql .= " $column=$key AND";
+    }
     $sql = remove_suffix($sql, " AND") . ";";
     return $sql;
   }
 
-  function delete(string $table, int|array $ids, string $column = "id")
+  function delete(string $table, mixed $keys, string $column = "id")
   {
-    return $this->Run($this->deleteSQL($table, $ids, $column));
+    return $this->Run($this->deleteSQL($table, $keys, $column));
   }
 
   function deleteLastRowsSQL(string $table, $count)
   {
-    return "DELETE FROM " . $table . " ORDER BY id DESC LIMIT " . $count . ";";
+    return "DELETE FROM $table ORDER BY id DESC LIMIT $count;";
   }
 
   function deleteLastRows($table, $count)
   {
     return $this->Run($this->deleteLastRowsSQL($table, $count));
   }
+
+  function clearSQL($table)
+  {
+    return "TRUNCATE TABLE $table";
+  }
+
+  function clear($table)
+  {
+    return $this->Run($this->clearSQL($table));
+  }
+
+  //TRUNCATE
 
   function getLastValue($table, $column)
   {

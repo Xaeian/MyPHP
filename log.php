@@ -57,7 +57,7 @@ class LOG
   
   static function Var(mixed $subject): mixed
   {
-    if($subject === null) return "NULL";
+    if($subject === null) return "null";
     else if(is_string($subject)) return '"' . $subject . '"';
     else return $subject;
   }

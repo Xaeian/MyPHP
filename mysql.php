@@ -196,7 +196,7 @@ class MYSQL
   }
   //------------------------------------------------------------------------------------------------------------------- ???
 
-  function AutoIncrementSQL($table)
+  function AutoincrementMaxIDSQL($table)
   {
     $sql = [];
     $sql[0] = "SELECT IFNULL((MAX(id)+1),1) INTO @inc FROM " . $table . ";";
@@ -207,9 +207,9 @@ class MYSQL
     return $sql;
   }
 
-  function AutoIncrement($table)
+  function AutoincrementMaxID($table)
   {
-    return $this->Transaction($this->AutoIncrementSQL($table));
+    return $this->Transaction($this->AutoincrementMaxIDSQL($table));
   }
 
   function ReindexSQL($table)
@@ -217,7 +217,7 @@ class MYSQL
     $sql = [];
     $sql[0] = "SET @row = 0;";
     $sql[1] = "UPDATE " . $table . " SET id = @row := @row+1;";
-    return array_merge($sql, $this->AutoIncrementSQL($table));
+    return array_merge($sql, $this->AutoincrementMaxIDSQL($table));
   }
 
   function Reindex($table)

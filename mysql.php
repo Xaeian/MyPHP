@@ -276,13 +276,13 @@ class MYSQL
       $name = $this->db;
       $this->db = "";
     }
-    $sql = "DROP DATABASE IF EXISTS {$name};";
+    $sql = "DROP DATABASE IF EXISTS '$name';";
     $this->Run($sql);
   }
 
   function isSetDatabase(string $name)
   {
-    return $this->getBool("SHOW DATABASES LIKE '" . $name . "'");
+    return $this->getBool("SHOW DATABASES LIKE '$name'");
   }
   //------------------------------------------------------------------------------------------------------------------- Table
 

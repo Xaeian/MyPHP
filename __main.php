@@ -16,18 +16,10 @@ function php_error_redirection(string $path, bool $deprecated = false)
 }
 
 const LIB_PATH = __DIR__ . "/";
-defined('ROOT_PATH') or define('ROOT_PATH', LIB_PATH);
-$_settings_ini = parse_ini_file(LIB_PATH . "settings.ini", true);
-define('COMPOSER_PATH', $_settings_ini["composer"]);
+const FILE_REPEAT = 1000; // TODO remove
 
-/**
- * Load system variables for libraries `$lib`
- */
-function ini_load(string $lib)
-{
-  global $_settings_ini;
-  return $_settings_ini[$lib];
-}
+defined('ROOT_PATH') or define('ROOT_PATH', LIB_PATH);
+define('COMPOSER_PATH', path_pretty(__DIR__ . "/../composer/vendor/autoload.php")); // TODO remove
 
 /**
  * Include other libraries from names `$libs`
@@ -297,7 +289,7 @@ function dir_make($location)
 
 function file_load($location)
 {
-  $limit = ini_load("fileRepeat");
+  $limit = FILE_REPEAT;
   while($limit--) {
     $content = @file_get_contents($location);
     if($content === false) continue;
@@ -317,7 +309,7 @@ function file_load_lines($location)
 
 function file_save($location, $content): bool
 {
-  $limit = ini_load("fileRepeat");
+  $limit = FILE_REPEAT;
   if(!file_exists($location)) dir_make(dirname($location));
   while($limit--) {
     if(file_put_contents($location, $content)) return true;
@@ -328,7 +320,7 @@ function file_save($location, $content): bool
 
 function file_delete($location)
 {
-  $limit = ini_load("fileRepeat");
+  $limit = FILE_REPEAT;
   while($limit--) {
     if(@unlink($location)) return true;
   }

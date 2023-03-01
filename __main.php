@@ -15,6 +15,12 @@ function php_error_redirection(string $path, bool $deprecated = false)
   ini_set("error_log", $path);
 }
 
+function is_windows()
+{
+  if(strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') return true;
+  return false;
+}
+
 const LIB_PATH = __DIR__ . "/";
 const FILE_REPEAT = 1000; // TODO remove
 
